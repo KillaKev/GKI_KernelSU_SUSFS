@@ -59,6 +59,14 @@ on:
         required: false
         type: string
         default: ""
+      brand_name:
+        required: false
+        type: string
+        default: ""
+      keep_kmi:
+        required: false
+        type: boolean
+        default: false
       bypass:
         required: false
         type: boolean
@@ -252,34 +260,34 @@ jobs:
       run: |
         set -euo pipefail
         KVER="${{ inputs.kernel_version }}"
-        if [ "$(printf '%s\n' \"6.6\" \"$KVER\" | sort -V | head -n1)" = \"6.6\" ]; then
-          echo \"[*] KVER $KVER >= 6.6, patching selinux_hide.c (all flavors/branches)\"
-          for f in $(find \"${{ github.workspace }}\" -name selinux_hide.c 2>/dev/null); do
-            if grep -q \"extern void security_dump_masked_av_fn\" \"$f\"; then
-              echo \"[*] $f is extern-function form (10_enable applied), patching with &\"
-              sed -i 's/if (security_dump_masked_av_fn)/if (\\&security_dump_masked_av_fn)/g' \"$f\"
-              sed -i 's/if (security_dump_masked_av_fn != NULL)/if (\\&security_dump_masked_av_fn != NULL)/g' \"$f\"
-              sed -i 's/if (context_struct_compute_av_fn)/if (\\&context_struct_compute_av_fn)/g' \"$f\"
-              sed -i 's/if (context_struct_compute_av_fn != NULL)/if (\\&context_struct_compute_av_fn != NULL)/g' \"$f\"
-              echo \"[+] Patched $f (function form)\"
-            elif grep -q \"if (security_dump_masked_av_fn\" \"$f\"; then
-              echo \"[*] $f is pointer form, patching with != NULL\"
-              sed -i 's/if (security_dump_masked_av_fn)/if (security_dump_masked_av_fn != NULL)/g' \"$f\"
-              sed -i 's/if (context_struct_compute_av_fn)/if (context_struct_compute_av_fn != NULL)/g' \"$f\"
-              echo \"[+] Patched $f (pointer form)\"
+        if [ "$(printf '%s\n' "6.6" "$KVER" | sort -V | head -n1)" = "6.6" ]; then
+          echo "[*] KVER $KVER >= 6.6, patching selinux_hide.c (all flavors/branches)"
+          for f in $(find "${{ github.workspace }}" -name selinux_hide.c 2>/dev/null); do
+            if grep -q "extern void security_dump_masked_av_fn" "$f"; then
+              echo "[*] $f is extern-function form (10_enable applied), patching with &"
+              sed -i 's/if (security_dump_masked_av_fn)/if (\&security_dump_masked_av_fn)/g' "$f"
+              sed -i 's/if (security_dump_masked_av_fn != NULL)/if (\&security_dump_masked_av_fn != NULL)/g' "$f"
+              sed -i 's/if (context_struct_compute_av_fn)/if (\&context_struct_compute_av_fn)/g' "$f"
+              sed -i 's/if (context_struct_compute_av_fn != NULL)/if (\&context_struct_compute_av_fn != NULL)/g' "$f"
+              echo "[+] Patched $f (function form)"
+            elif grep -q "if (security_dump_masked_av_fn" "$f"; then
+              echo "[*] $f is pointer form, patching with != NULL"
+              sed -i 's/if (security_dump_masked_av_fn)/if (security_dump_masked_av_fn != NULL)/g' "$f"
+              sed -i 's/if (context_struct_compute_av_fn)/if (context_struct_compute_av_fn != NULL)/g' "$f"
+              echo "[+] Patched $f (pointer form)"
             else
-              echo \"[*] $f already patched\"
+              echo "[*] $f already patched"
             fi
-            if grep -q \"^static int security_context_to_sid_with_policy\" \"$f\"; then
-              echo \"[*] Stripping static from $f helpers (Next 6.6)\"
-              sed -i 's/^static int security_context_to_sid_with_policy/int security_context_to_sid_with_policy/g' \"$f\"
-              sed -i 's/^static int security_sid_to_context_with_policy/int security_sid_to_context_with_policy/g' \"$f\"
-              sed -i 's/^static void security_compute_av_user_with_policy/void security_compute_av_user_with_policy/g' \"$f\"
-              echo \"[+] Stripped static from $f\"
+            if grep -q "^static int security_context_to_sid_with_policy" "$f"; then
+              echo "[*] Stripping static from $f helpers (Next 6.6)"
+              sed -i 's/^static int security_context_to_sid_with_policy/int security_context_to_sid_with_policy/g' "$f"
+              sed -i 's/^static int security_sid_to_context_with_policy/int security_sid_to_context_with_policy/g' "$f"
+              sed -i 's/^static void security_compute_av_user_with_policy/void security_compute_av_user_with_policy/g' "$f"
+              echo "[+] Stripped static from $f"
             fi
           done
         else
-          echo \"[-] KVER $KVER < 6.6\"
+          echo "[-] KVER $KVER < 6.6"
         fi
 
     - name: Baseband Guard
@@ -357,18 +365,18 @@ jobs:
       if: false
       working-directory: ${{ github.workspace }}/kernel
       run: |
-        if [[ \"$ANDROID_VERSION\" == \"android12\" && \"$KERNEL_VERSION\" == \"5.10\" ]]; then
-          sed -i 's/^\\s*exit 1$/    echo \"Who Cares? Bypassing Now!\"/' build/abi/compare_to_symbol_list
-        elif [[ \"$ANDROID_VERSION\" == \"android13\" && \"$KERNEL_VERSION\" == \"5.10\" ]]; then
-          sed -i 's/^\\s*exit 1$/    echo \"Who Cares? Bypassing Now!\"/' build/kernel/abi/compare_to_symbol_list
-        elif [[ \"$ANDROID_VERSION\" == \"android13\" && \"$KERNEL_VERSION\" == \"5.15\" ]]; then
-          sed -i 's/^\\s*exit 1$/    echo \"Who Cares? Bypassing Now!\"/' build/kernel/abi/compare_to_symbol_list
-        elif [[ \"$ANDROID_VERSION\" == \"android14\" && \"$KERNEL_VERSION\" == \"5.15\" ]]; then
-          perl -i -pe 's/^(\\s*)return 1$/$1print(\"Who Cares? Bypassing Now!\")\\n$1return 0/g if /if missing_symbols:/../return 1/' build/kernel/abi/check_buildtime_symbol_protection.py
-        elif [[ \"$ANDROID_VERSION\" == \"android14\" && \"$KERNEL_VERSION\" == \"6.1\" ]]; then
-          perl -i -pe 's/^(\\s*)return 1$/$1print(\"Who Cares? Bypassing Now!\")\\n$1return 0/g if /if missing_symbols:/../return 1/' build/kernel/abi/check_buildtime_symbol_protection.py
-        elif [[ \"$ANDROID_VERSION\" == \"android15\" && \"$KERNEL_VERSION\" == \"6.6\" ]]; then
-          perl -i -pe 's/^(\\s*)return 1$/$1print(\"Who Cares? Bypassing Now!\")\\n$1return 0/g if /if missing_symbols:/../return 1/' build/kernel/abi/check_buildtime_symbol_protection.py
+        if [[ "$ANDROID_VERSION" == "android12" && "$KERNEL_VERSION" == "5.10" ]]; then
+          sed -i 's/^\s*exit 1$/    echo "Who Cares? Bypassing Now!"/' build/abi/compare_to_symbol_list
+        elif [[ "$ANDROID_VERSION" == "android13" && "$KERNEL_VERSION" == "5.10" ]]; then
+          sed -i 's/^\s*exit 1$/    echo "Who Cares? Bypassing Now!"/' build/kernel/abi/compare_to_symbol_list
+        elif [[ "$ANDROID_VERSION" == "android13" && "$KERNEL_VERSION" == "5.15" ]]; then
+          sed -i 's/^\s*exit 1$/    echo "Who Cares? Bypassing Now!"/' build/kernel/abi/compare_to_symbol_list
+        elif [[ "$ANDROID_VERSION" == "android14" && "$KERNEL_VERSION" == "5.15" ]]; then
+          perl -i -pe 's/^(\s*)return 1$/$1print("Who Cares? Bypassing Now!")\n$1return 0/g if /if missing_symbols:/../return 1/' build/kernel/abi/check_buildtime_symbol_protection.py
+        elif [[ "$ANDROID_VERSION" == "android14" && "$KERNEL_VERSION" == "6.1" ]]; then
+          perl -i -pe 's/^(\s*)return 1$/$1print("Who Cares? Bypassing Now!")\n$1return 0/g if /if missing_symbols:/../return 1/' build/kernel/abi/check_buildtime_symbol_protection.py
+        elif [[ "$ANDROID_VERSION" == "android15" && "$KERNEL_VERSION" == "6.6" ]]; then
+          perl -i -pe 's/^(\s*)return 1$/$1print("Who Cares? Bypassing Now!")\n$1return 0/g if /if missing_symbols:/../return 1/' build/kernel/abi/check_buildtime_symbol_protection.py
         fi
 
     - name: Apply Kernel Branding
@@ -598,7 +606,7 @@ jobs:
           echo "| **Status** | ${STATUS} |"
           echo "| **Kernel** | ${{ inputs.kernel_version }}.${{ inputs.sublevel }}-${{ inputs.android_version }}-${{ inputs.os_patch_level }} |"
           if [ -n "$KERNEL_VER_STR" ]; then
-            echo "| **Version String** | \\`${KERNEL_VER_STR}\\` |"
+            echo "| **Version String** | \`${KERNEL_VER_STR}\` |"
           fi
           echo "| **KSU Version** | ${KSU_VER} |"
           echo "| **KSU Tag** | ${KSU_TAG} |"
