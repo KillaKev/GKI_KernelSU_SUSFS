@@ -67,6 +67,10 @@ on:
         required: false
         type: boolean
         default: false
+      allow_version_mismatch:
+        required: false
+        type: boolean
+        default: false
       bypass:
         required: false
         type: boolean
@@ -441,28 +445,6 @@ jobs:
         cache_bucket: bazel-cache-${{ inputs.version }}-${{ inputs.variant }}
         restore_keys: |
           ${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ steps.extract.outputs.sublevel }}-
-
-    - name: Cache ccache (GitHub Native)
-      if: false
-      uses: actions/cache@v6
-      with:
-        path: /home/runner/.ccache
-        key: ccache-${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ steps.extract.outputs.sublevel }}-${{ inputs.os_patch_level }}
-        restore-keys: |
-          ccache-${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ steps.extract.outputs.sublevel }}-
-          ccache-${{ inputs.android_version }}-${{ inputs.kernel_version }}-
-          ccache-
-
-    - name: Cache bazel-cache (GitHub Native)
-      if: false
-      uses: actions/cache@v6
-      with:
-        path: /home/runner/.cache/bazel
-        key: bazel-${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ steps.extract.outputs.sublevel }}-${{ inputs.os_patch_level }}
-        restore-keys: |
-          bazel-${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ steps.extract.outputs.sublevel }}-
-          bazel-${{ inputs.android_version }}-${{ inputs.kernel_version }}-
-          bazel-
 
     - name: Check cache hit
       run: |
